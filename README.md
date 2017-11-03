@@ -1,57 +1,14 @@
 Source Map Peek
 ===============
 
-Peek into original source via source maps from the command line when devtools fail.
+# generate source maps
 
-There are still few cases where source map support fails and you have to debug the huge js bundle.
+cd native
+# Android:
+react-native bundle --platform android --entry-file index.android.js --dev false --bundle-output ./android/main.jsbundle --assets-dest ./android --sourcemap-output ./sourcemap.js
+# iOS:
+react-native bundle --platform ios --entry-file index.ios.js --dev false --bundle-output ./ios/main.jsbundle --assets-dest ./ios --sourcemap-output ./sourcemap.js
 
-For example
+# copy sourcemap.js into this project directory
 
-  - Those shitty old browsers
-  - Long stack traces from promise libraries such as Q or Bluebird
-  - Some bad test frameworks
-  - Probably in some other weird setups too
-
-Source Map Peek is a small bandage for these situations. It allows you to view and access the original source using source maps from the command line.
-
-Screencast <http://youtu.be/u11QzPGIDWU>
-
-Usage
------
-
-
-    source-map-peek [OPTIONS] FILE<:LINE>[:COLUMN]
-
-    --path      Print only the source path.
-    --padding   Add padding for the preview. Default: 10
-    --map       Set custom path to the source map file if everything else fails
-
-    To start editor on the line use
-
-    --emacs
-    --gedit
-    --less
-    --nano
-    --vim
-
-Example
-
-    $ source-map-peek -p 5 bundle.js:9134
-    16:     constructor: ->
-    17:         super
-    18:         @randomizeIndex()
-    19:
-    20:         if not @collection
-    21:             throw new Error "Collection missing"
-    22:
-    23:         @listenTo @collection, "reset", => @render()
-    24:
-    25:         @on "reset", =>
-
-    file /path/to/file.coffee
-    line: 20 column: 8
-
-Install
--------
-
-    npm install -g source-map-peek
+# replace stacktrace in index.js and run ./index.js in terminal

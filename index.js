@@ -1,133 +1,36 @@
 #!/usr/bin/env node
 
-var fs = require("fs");
-var SourceMapConsumer = require("source-map").SourceMapConsumer;
-var convert = require("convert-source-map");
-var kexec = require("kexec");
-var path = require("path");
-var minimist = require("minimist");
+var sourceMap = require('source-map');
+var fs = require('fs');
 
-require("colors");
+fs.readFile('./sourcemap.js', 'utf8', function (err, data) {
+  var smc = new sourceMap.SourceMapConsumer(data);
 
-var argv = minimist(process.argv.slice(2), {
-    default: {
-        padding: 10
-    },
-    alias: {
-        p: "padding",
-        h: "help"
-    },
-    boolean: [
-        "help",
-        "vim",
-        "emacs",
-        "nano",
-        "less",
-        "gedit",
-        "path"
-    ]
+  const stacktrace = 'f@479:2641\n' +
+    'm@479:6377\n' +
+    '<unknown>@312:1740\n' +
+    '<unknown>@1197:202\n' +
+    'c@298:695\n' +
+    '<unknown>@951:1468\n' +
+    '<unknown>@1209:14664\n' +
+    '<unknown>@1208:174\n' +
+    'dispatch@315:316\n' +
+    '<unknown>@476:5140\n' +
+    '<unknown>@1208:165\n' +
+    'voteDvel@1036:6762';
+
+  var lines = stacktrace.split('\n');
+  lines.forEach(function (line) {
+    var data = line.split('@');
+    data = data[1].split(':');
+    var line = data[0];
+    var column = data[1];
+    console.log(line + ':' + column);
+
+    console.log(smc.originalPositionFor({
+      line: line,
+      column: column,
+    }));
+  });
+
 });
-
-if (argv.help) {
-    process.stdout.write(fs.readFileSync(__dirname + "/README.md"));
-    process.exit(0);
-}
-
-var line = 0;
-var column = 0;
-
-// remove file:// prefix if any
-var file = argv._[0].replace(/^file\:\/\//, "");
-
-var match;
-if (match = file.match(/^(.*?)(\:[0-9]+)(\:[0-9]+|$)/)) {
-    file = match[1];
-    line = parseInt(match[2].slice(1), 10);
-    if (match[3]) column = parseInt(match[3].slice(1), 10);
-}
-
-
-var source = fs.readFileSync(file).toString();
-var converter;
-
-// --map
-if (argv.map) {
-    var mapSource = fs.readFileSync(argv.map).toString();
-    converter = convert.fromJSON(mapSource);
-}
-
-// inline base64 source map
-// //# sourceMappingURL=data:application/json;base64,eyJ2....
-if (!converter) {
-    converter = convert.fromSource(source);
-}
-
-// With link to file name
-// //# sourceMappingURL=filename.map
-if (!converter) {
-    converter = convert.fromMapFileSource(source, path.dirname(file));
-}
-
-// Just guess
-if (!converter) {
-    var guessFile = file.replace(/\.js$/, "") + ".map";
-    var mapSource = fs.readFileSync(guessFile).toString();
-    converter = convert.fromJSON(mapSource);
-}
-
-if (!converter || !converter.sourcemap) {
-    console.error("Cannot find source map from", file);
-    process.exit(1);
-}
-
-var smc = new SourceMapConsumer(converter.sourcemap);
-
-var origpos = smc.originalPositionFor({ line: line, column: column });
-
-if (argv.vim) {
-    kexec("vim", [
-        "+call cursor(" + origpos.line + ", " + origpos.column +")",
-        origpos.source
-    ]);
-}
-
-function startEditorOnLine(editor) {
-    // Used by the most editors
-    kexec(editor, [ "+" + origpos.line, origpos.source ]);
-}
-
-if (argv.emacs) startEditorOnLine("emacs");
-if (argv.gedit) startEditorOnLine("gedit");
-if (argv.less) startEditorOnLine("less");
-if (argv.nano) startEditorOnLine("nano");
-
-if (argv.path) {
-    process.stdout.write(origpos.source + "\n");
-    process.exit(0);
-}
-
-try {
-    var originalSource = fs.readFileSync(origpos.source).toString();
-} catch (err) {
-    console.error("Failed to open original source file from", origpos.source, err.code);
-}
-
-if (originalSource) {
-    var preview = originalSource
-        .split("\n")
-        .map(function(line, i) {
-            var linenum = i + 1;
-            var out = linenum + ": " + line;
-            if (linenum == origpos.line) out = out.red;
-            return out;
-        })
-        .slice(origpos.line - argv.padding, origpos.line + argv.padding)
-        .join("\n")
-        ;
-
-    console.log(preview);
-    console.log();
-}
-
-console.log("file:", origpos.source);
-console.log("line:", origpos.line, "column:", origpos.column);
